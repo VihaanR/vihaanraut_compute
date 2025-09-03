@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # -----------------------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv("V:/Projects/vihaanraut_compute/ML_Tasks/ufc-fighters-statistics_cleaned.csv")
+    df = pd.read_csv("ufc-fighters-statistics_cleaned.csv")
     return df
 
 df = load_data()
@@ -124,3 +124,4 @@ st.pyplot(fig)
 # -----------------------------
 st.markdown("### 📋 Fighter Stats Table")
 st.dataframe(df[df["name"].isin([fighter1, fighter2])].set_index("name"))
+
