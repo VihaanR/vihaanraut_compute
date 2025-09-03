@@ -9,7 +9,7 @@ import seaborn as sns
 @st.cache_data
 def load_data():
     # Make sure ufc-fighters-statistics_cleaned.csv is in the same repo folder as app.py
-    df = pd.read_csv("ufc-fighters-statistics_cleaned.csv")
+    df = pd.read_csv("https://raw.githubusercontent.com/VihaanR/vihaanraut_compute/refs/heads/main/ML_Tasks/ufc-fighters-statistics.csv")
     return df
 
 df = load_data()
@@ -102,3 +102,4 @@ st.pyplot(fig)
 # ----------------------------
 st.subheader("📂 Fighter Stats Data")
 st.dataframe(df.head(50))
+
