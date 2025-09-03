@@ -1,105 +1,126 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-# ----------------------------
+# -----------------------------
 # Load Data
-# ----------------------------
+# -----------------------------
 @st.cache_data
 def load_data():
-    # Make sure ufc-fighters-statistics_cleaned.csv is in the same repo folder as app.py
     df = pd.read_csv("https://raw.githubusercontent.com/VihaanR/vihaanraut_compute/refs/heads/main/ML_Tasks/ufc-fighters-statistics.csv")
     return df
 
 df = load_data()
 
-# ----------------------------
-# Streamlit UI
-# ----------------------------
-st.set_page_config(page_title="UFC Fighters Comparison", layout="wide")
-
-st.title("🥊 UFC Fighters Comparison Dashboard")
-st.markdown(
-    """
-    Compare UFC fighters across different features (Reach, Win %, Loss %, etc.)  
-    and calculate **longest consecutive win streaks**.
-    """
+# -----------------------------
+# Page Setup
+# -----------------------------
+st.set_page_config(
+    page_title="UFC Fighter Comparison",
+    page_icon="🥊",
+    layout="wide"
 )
 
-# Sidebar filters
-st.sidebar.header("🔍 Compare Fighters")
-fighters = df["Name"].unique()
-fighter1 = st.sidebar.selectbox("Select Fighter 1", fighters)
-fighter2 = st.sidebar.selectbox("Select Fighter 2", fighters)
+st.title("🥊 UFC Fighter Comparison Dashboard")
+st.markdown("""
+Compare UFC fighters across different features (**Wins, Losses, Height, Reach, Striking, etc.**)  
+Also check each fighter's **Longest Consecutive Win Streak** (if fight history available).
+""")
 
-feature = st.sidebar.selectbox(
-    "Select Feature to Compare",
-    ["Win Percentage", "Loss Percentage", "Reach", "Height", "Weight"]
-)
-
-# ----------------------------
-# Helper Functions
-# ----------------------------
-def calculate_win_streak(record):
+# -----------------------------
+# Helper Function – Longest Win Streak
+# -----------------------------
+def longest_win_streak(record_str):
     """
-    Given a fighter's fight record string like 'W, W, L, W',
-    calculate longest consecutive win streak.
+    Calculate the longest consecutive win streak from a fight history string.
+    Example: "W W L W W W L" -> 3
     """
-    if pd.isna(record):
+    if pd.isna(record_str):
         return 0
-    results = record.split(",")
+    results = record_str.split()
     max_streak, current = 0, 0
     for r in results:
-        if r.strip() == "W":
+        if r == "W":
             current += 1
             max_streak = max(max_streak, current)
         else:
             current = 0
     return max_streak
 
-# Precompute win streaks if "Record" column exists
-if "Record" in df.columns:
-    df["Longest Win Streak"] = df["Record"].apply(calculate_win_streak)
+if "Fight_History" in df.columns:
+    df["LongestWinStreak"] = df["Fight_History"].apply(longest_win_streak)
 
-# ----------------------------
-# Fighter Comparison
-# ----------------------------
+# -----------------------------
+# Fighter Selection
+# -----------------------------
+fighters = sorted(df["name"].unique())
+
 col1, col2 = st.columns(2)
-
 with col1:
-    st.subheader(f"{fighter1}")
-    fighter1_data = df[df["Name"] == fighter1].iloc[0]
-    st.write(f"**{feature}:** {fighter1_data.get(feature, 'N/A')}")
-    if "Longest Win Streak" in df.columns:
-        st.write(f"**Longest Win Streak:** {fighter1_data['Longest Win Streak']}")
-
+    fighter1 = st.selectbox("Select Fighter 1", fighters)
 with col2:
-    st.subheader(f"{fighter2}")
-    fighter2_data = df[df["Name"] == fighter2].iloc[0]
-    st.write(f"**{feature}:** {fighter2_data.get(feature, 'N/A')}")
-    if "Longest Win Streak" in df.columns:
-        st.write(f"**Longest Win Streak:** {fighter2_data['Longest Win Streak']}")
+    fighter2 = st.selectbox("Select Fighter 2", fighters)
 
-# ----------------------------
+# -----------------------------
+# Feature Selection
+# -----------------------------
+feature_map = {
+    "Wins": "wins",
+    "Losses": "losses",
+    "Draws": "draws",
+    "Height (cm)": "height_cm",
+    "Weight (kg)": "weight_in_kg",
+    "Reach (cm)": "reach_in_cm",
+    "Strikes Landed per Min": "significant_strikes_landed_per_minute",
+    "Striking Accuracy %": "significant_striking_accuracy",
+    "Strikes Absorbed per Min": "significant_strikes_absorbed_per_minute",
+    "Strike Defense %": "significant_strike_defence",
+    "Takedowns per 15 min": "average_takedowns_landed_per_15_minutes",
+    "Takedown Accuracy %": "takedown_accuracy",
+    "Takedown Defense %": "takedown_defense",
+    "Submissions per 15 min": "average_submissions_attempted_per_15_minutes"
+}
+
+feature_label = st.selectbox("Select Feature to Compare", list(feature_map.keys()))
+feature = feature_map[feature_label]
+
+# -----------------------------
+# Display Fighter Stats
+# -----------------------------
+def display_fighter_stats(fighter):
+    stats = df[df["name"] == fighter].iloc[0]
+    st.subheader(f"**{fighter}** 🥋")
+    st.metric("Wins", int(stats["wins"]))
+    st.metric("Losses", int(stats["losses"]))
+    st.metric("Draws", int(stats["draws"]))
+    st.metric("Height", f"{stats['height_cm']} cm")
+    st.metric("Weight", f"{stats['weight_in_kg']} kg")
+    st.metric("Reach", f"{stats['reach_in_cm']} cm")
+    if "LongestWinStreak" in stats:
+        st.metric("Longest Win Streak", int(stats["LongestWinStreak"]))
+
+col1, col2 = st.columns(2)
+with col1:
+    display_fighter_stats(fighter1)
+with col2:
+    display_fighter_stats(fighter2)
+
+# -----------------------------
 # Visualization
-# ----------------------------
-st.subheader("📊 Feature Comparison Chart")
+# -----------------------------
+st.markdown("### 📊 Feature Comparison")
 
-fig, ax = plt.subplots(figsize=(6, 4))
-sns.barplot(
-    x=[fighter1, fighter2],
-    y=[fighter1_data.get(feature, 0), fighter2_data.get(feature, 0)],
-    palette="viridis",
-    ax=ax
-)
-ax.set_ylabel(feature)
-ax.set_title(f"{feature} Comparison")
+f1_val = df.loc[df["name"]==fighter1, feature].values[0]
+f2_val = df.loc[df["name"]==fighter2, feature].values[0]
+
+fig, ax = plt.subplots(figsize=(6,4))
+ax.bar([fighter1, fighter2], [f1_val, f2_val], color=["#1f77b4","#ff7f0e"])
+ax.set_ylabel(feature_label)
+ax.set_title(f"{feature_label} Comparison")
 st.pyplot(fig)
 
-# ----------------------------
-# Full Dataset Explorer
-# ----------------------------
-st.subheader("📂 Fighter Stats Data")
-st.dataframe(df.head(50))
-
+# -----------------------------
+# Extra: Fighter Table
+# -----------------------------
+st.markdown("### 📋 Fighter Stats Table")
+st.dataframe(df[df["name"].isin([fighter1, fighter2])].set_index("name"))
